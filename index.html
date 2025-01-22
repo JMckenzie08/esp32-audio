@@ -11,24 +11,112 @@
         font-family: sans-serif;
         text-align: center;
       }
-
     </style>
 
   </head>
   <body>
 
-    <h1>Engine sound simulator</h1>
+    <h1>Engine Sound Simulator</h1>
 
     <p><i>Please click once to enable sounds :)</i></p>
 
     <h2>Controls:</h2>
-    
     <p>Space: LETS GOOO</p>
-    <p>Arrow up/down: change gear</p>
-    <p>Numbers: change gear</p>
-    <p>B: slow down</p>
+    <p>Arrow up/down: Change Gear</p>
+    <p>Numbers: Change Gear</p>
+    <p>B: Slow Down</p>
 
-    <script type="module" src="/src/main.ts"></script>
+    <!-- Engine Sound Files -->
+    <audio id="lowRPM" src="https://jmckenzie08.github.io/esp32-car-control/sounds/BAC_Mono_offlow.wav" preload="auto" loop></audio>
+    <audio id="midRPM" src="https://jmckenzie08.github.io/esp32-car-control/sounds/BAC_Mono_onmid.wav" preload="auto" loop></audio>
+    <audio id="highRPM" src="https://jmckenzie08.github.io/esp32-car-control/sounds/BAC_Mono_offhigh.wav" preload="auto" loop></audio>
+    <audio id="revving" src="https://jmckenzie08.github.io/esp32-car-control/sounds/REV.wav" preload="auto"></audio>
+    <audio id="limiter" src="https://jmckenzie08.github.io/esp32-car-control/sounds/limiter.wav" preload="auto"></audio>
+
+    <script>
+      let esp32IP = "http://192.168.4.1"; 
+      let xboxConnected = false;
+      let lastThrottle = 0;
+      let lastSteering = 50;
+
+      function enableAudio() {
+          document.getElementById("lowRPM").play();
+          document.getElementById("lowRPM").pause();
+          alert("Engine sound enabled! Use the controller or keyboard to rev the engine.");
+      }
+
+      async function sendThrottle(value) {
+          fetch(esp32IP + "/throttle?value=" + value);
+          updateEngineSound(value);
+      }
+
+      async function sendSteer(value) {
+          fetch(esp32IP + "/steer?value=" + value);
+      }
+
+      function updateEngineSound(throttle) {
+          let lowRPM = document.getElementById("lowRPM");
+          let midRPM = document.getElementById("midRPM");
+          let highRPM = document.getElementById("highRPM");
+          let revving = document.getElementById("revving");
+          let limiter = document.getElementById("limiter");
+
+          lowRPM.pause();
+          midRPM.pause();
+          highRPM.pause();
+          revving.pause();
+          limiter.pause();
+
+          if (throttle > 80) {
+              highRPM.play();
+          } else if (throttle > 30) {
+              midRPM.play();
+          } else {
+              lowRPM.play();
+          }
+
+          if (throttle === 100) {
+              limiter.play();
+          }
+      }
+
+      // 🎮 Xbox Controller Support
+      window.addEventListener("gamepadconnected", () => {
+          xboxConnected = true;
+          document.getElementById("xboxStatus").innerText = "🎮 Xbox Controller: Connected!";
+          requestAnimationFrame(gameLoop);
+      });
+
+      function gameLoop() {
+          let gamepad = navigator.getGamepads()[0];
+          if (gamepad) {
+              let throttleValue = Math.round((gamepad.buttons[7].value) * 100); // RT controls throttle
+              let steerValue = Math.round((gamepad.axes[0] + 1) * 50); // Left joystick controls steering
+
+              if (throttleValue !== lastThrottle) {
+                  sendThrottle(throttleValue);
+                  lastThrottle = throttleValue;
+              }
+
+              if (steerValue !== lastSteering) {
+                  sendSteer(steerValue);
+                  lastSteering = steerValue;
+              }
+          }
+          requestAnimationFrame(gameLoop);
+      }
+
+      // 🏎 Keyboard Controls
+      document.addEventListener("keydown", (event) => {
+          if (event.code === "Space") {
+              sendThrottle(100);
+          } else if (event.code === "ArrowDown") {
+              sendThrottle(0);
+          } else if (event.code === "KeyB") {
+              sendThrottle(50);
+          }
+      });
+
+    </script>
   </body>
-
 </html>
